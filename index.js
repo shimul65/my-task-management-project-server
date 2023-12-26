@@ -169,9 +169,9 @@ run().catch(console.dir);
 
 
 
-app.get('/', (req, res) => {
-    res.send('my-task management server is running')
-})
+// app.get('/', (req, res) => {
+//     res.send('my-task management server is running')
+// })
 
 app.listen(port, () => {
     console.log(`my-task management server is running on port ${port}`);
