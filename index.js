@@ -1,23 +1,24 @@
 const express = require('express');
 const app = express();
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const cors = require('cors');
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.PORT || 5053;
 
 //middleware
 app.use(cors({
     origin: [
+        'https://my-task-management-674bf.surge.sh',
+        'https://my-task-management-674bf.web.app',
+        'https://my-task-management-674bf.firebase.com',
         'http://localhost:5173',
     ],
     credentials: true
 }));
 app.use(express.json());
 app.use(cookieParser());
-
-
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.n45ephu.mongodb.net/?retryWrites=true&w=majority`;
@@ -35,6 +36,7 @@ async function run() {
     try {
 
         const usersCollection = client.db('taskManagementDB').collection('users');
+        const tasksCollection = client.db('taskManagementDB').collection('tasks');
 
         //jwt related api
         app.post('/jwt', async (req, res) => {
@@ -77,6 +79,7 @@ async function run() {
             })
         }
 
+        // users related api
         app.get('/users', verifyToken, async (req, res) => {
             const result = await usersCollection.find().toArray();
             res.send(result);
@@ -94,6 +97,62 @@ async function run() {
         })
 
 
+        // tasks related api
+
+        app.get('/tasks', verifyToken, async (req, res) => {
+            const userEmail = req.query?.email;
+            let query = {}
+            if (userEmail) {
+                query = {
+                    email: userEmail
+                }
+            }
+            const result = await tasksCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        app.get('/tasks/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+            const result = await tasksCollection.findOne(query);
+            res.send(result);
+        })
+
+        
+        app.patch('/tasks/:id', async (req, res) => {
+            const updateTask = req.body;
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const options = { upsert: true };
+            const newTask = {
+                $set: {
+                    title: updateTask.title,
+                    description: updateTask.description,
+                    priority: updateTask.priority,
+                    deadline: updateTask.deadline,
+                    status: updateTask.status,
+                }
+            }
+            const result = await tasksCollection.updateOne(query, newTask, options);
+            res.send(result);
+        })
+
+        app.post('/tasks', verifyToken, async (req, res) => {
+            const newTasks = {
+                ...req.body,
+                timestamp: new Date()
+            };
+            const result = await tasksCollection.insertOne(newTasks)
+            res.send(result);
+        })
+
+        app.delete('/tasks/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await tasksCollection.deleteOne(query);
+            res.send(result);
+        })
+
 
 
 
@@ -103,7 +162,7 @@ async function run() {
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
 
-        // await client.close();
+        // await client.close(); 
     }
 }
 run().catch(console.dir);
